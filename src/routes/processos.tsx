@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/db/store";
 import { Process, ProcessStep, Client } from "@/lib/db/types";
+import { z } from "zod";
 import { 
   Plus, 
   Search, 
@@ -17,7 +18,7 @@ export const Route = createFileRoute("/processos")({
   component: ProcessosPage,
 });
 
-const STEPS: (typeof ProcessStep.Enum)[] = [
+const STEPS: z.infer<typeof ProcessStep>[] = [
   'Lead',
   'Contato Inicial',
   'Atendimento',
@@ -69,7 +70,7 @@ function ProcessosPage() {
     setShowModal(false);
   };
 
-  const updateStep = (processId: string, newStep: typeof ProcessStep.Enum) => {
+  const updateStep = (processId: string, newStep: z.infer<typeof ProcessStep>) => {
     const p = db.getById('processes', processId) as Process;
     if (p) {
       db.upsert('processes', { ...p, step: newStep, lastMove: new Date().toISOString() });
