@@ -17,7 +17,7 @@ export const Route = createFileRoute("/processos")({
   component: ProcessosPage,
 });
 
-const STEPS: ProcessStep[] = [
+const STEPS: (typeof ProcessStep.Enum)[] = [
   'Lead',
   'Contato Inicial',
   'Atendimento',
@@ -69,7 +69,7 @@ function ProcessosPage() {
     setShowModal(false);
   };
 
-  const updateStep = (processId: string, newStep: ProcessStep) => {
+  const updateStep = (processId: string, newStep: typeof ProcessStep.Enum) => {
     const p = db.getById('processes', processId) as Process;
     if (p) {
       db.upsert('processes', { ...p, step: newStep, lastMove: new Date().toISOString() });
