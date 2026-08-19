@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { 
   LayoutDashboard, 
   Users, 
@@ -7,9 +7,11 @@ import {
   DollarSign, 
   MessageSquare,
   Settings,
-  ChevronRight
+  ChevronRight,
+  LogOut
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/lib/db/auth';
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Visão Geral', to: '/' },
@@ -22,7 +24,24 @@ const menuItems = [
 ];
 
 export function Sidebar() {
-  return (
+  const { user, logout, checkPermission } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate({ to: '/auth' });
+  };
+
+  const filteredMenuItems = menuItems.filter(item => {
+    if (item.to === '/') return true;
+    if (item.to === '/clientes') return checkPermission('clientes');
+    if (item.to === '/processos') return checkPermission('processos');
+    if (item.to === '/agenda') return checkPermission('agenda');
+    if (item.to === '/financeiro') return checkPermission('financeiro');
+    if (item.to === '/comunicacao') return checkPermission('comunicacao');
+    if (item.to === '/comercial') return user?.role === 'OWNER' || user?.role === 'MASTER';
+    return true;
+  });
     <aside className="w-64 bg-diamante-dark text-white flex flex-col h-screen sticky top-0 border-r border-white/10">
       <div className="p-6 flex items-center gap-3">
         <div className="w-8 h-8 bg-diamante-orange rounded flex items-center justify-center font-bold text-white">D</div>
@@ -30,7 +49,7 @@ export function Sidebar() {
       </div>
       
       <nav className="flex-1 px-4 py-4 space-y-1">
-        {menuItems.map((item) => (
+        {filteredMenuItems.map((item) => (
           <Link
             key={item.to}
             to={item.to}
@@ -49,14 +68,24 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="p-4 border-t border-white/10">
+      <div className="p-4 border-t border-white/10 space-y-4">
         <div className="flex items-center gap-3 px-3 py-2 bg-white/5 rounded-lg">
-          <div className="w-8 h-8 rounded-full bg-diamante-orange flex items-center justify-center text-xs">TC</div>
+          <div className="w-8 h-8 rounded-full bg-diamante-orange flex items-center justify-center text-xs font-bold">
+            {user?.name.slice(0, 2).toUpperCase()}
+          </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">Tery Cavicchiolli</p>
-            <p className="text-xs text-white/50 truncate">Admin</p>
+            <p className="text-sm font-medium truncate">{user?.name}</p>
+            <p className="text-[10px] text-white/50 truncate uppercase font-bold tracking-wider">{user?.role}</p>
           </div>
         </div>
+        
+        <button 
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-2 text-sm text-white/50 hover:text-white hover:bg-white/5 rounded-md transition-colors"
+        >
+          <LogOut className="w-4 h-4" />
+          Sair
+        </button>
       </div>
     </aside>
   );
