@@ -46,6 +46,7 @@ function AgendaPage() {
     const newTask: Task = {
       ...(formData as any),
       id: crypto.randomUUID(),
+      companyId: '1', // Default
       responsibleId: '1',
       createdAt: new Date().toISOString(),
       status: 'Pendente'

@@ -50,7 +50,8 @@ function ClientesPage() {
     const newClient: Client = {
       ...(formData as any),
       id: (formData.id || crypto.randomUUID()),
-      commercialId: '1', // Default por enquanto
+      companyId: '1', // Default
+      commercialId: '1', // Default
       createdAt: new Date().toISOString(),
     };
     db.upsert('clients', newClient);

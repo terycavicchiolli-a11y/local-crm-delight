@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/db/store";
 import { Process, ProcessStep, Client } from "@/lib/db/types";
+import { z } from "zod";
 import { 
   Plus, 
   Search, 
@@ -17,7 +18,7 @@ export const Route = createFileRoute("/processos")({
   component: ProcessosPage,
 });
 
-const STEPS: ProcessStep[] = [
+const STEPS: z.infer<typeof ProcessStep>[] = [
   'Lead',
   'Contato Inicial',
   'Atendimento',
@@ -60,6 +61,7 @@ function ProcessosPage() {
     const newProcess: Process = {
       ...(formData as any),
       id: crypto.randomUUID(),
+      companyId: '1', // Default
       commercialId: '1',
       entryDate: new Date().toISOString(),
       lastMove: new Date().toISOString(),
@@ -69,7 +71,7 @@ function ProcessosPage() {
     setShowModal(false);
   };
 
-  const updateStep = (processId: string, newStep: ProcessStep) => {
+  const updateStep = (processId: string, newStep: z.infer<typeof ProcessStep>) => {
     const p = db.getById('processes', processId) as Process;
     if (p) {
       db.upsert('processes', { ...p, step: newStep, lastMove: new Date().toISOString() });
@@ -151,7 +153,7 @@ function ProcessosPage() {
                     <div className="mt-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       {STEPS.indexOf(step) > 0 && (
                         <button 
-                          onClick={() => updateStep(process.id, STEPS[STEPS.indexOf(step) - 1])}
+                          onClick={() => updateStep(process.id, STEPS[STEPS.indexOf(step as any) - 1]!)}
                           className="text-[10px] bg-muted hover:bg-muted-foreground/10 px-2 py-1 rounded"
                         >
                           Anterior
@@ -159,7 +161,7 @@ function ProcessosPage() {
                       )}
                       {STEPS.indexOf(step) < STEPS.length - 1 && (
                         <button 
-                          onClick={() => updateStep(process.id, STEPS[STEPS.indexOf(step) + 1])}
+                          onClick={() => updateStep(process.id, STEPS[STEPS.indexOf(step as any) + 1]!)}
                           className="text-[10px] bg-primary/10 text-primary hover:bg-primary/20 px-2 py-1 rounded ml-auto"
                         >
                           Próximo

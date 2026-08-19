@@ -4,11 +4,15 @@ import {
   createRootRouteWithContext,
   HeadContent,
   Scripts,
+  useLocation,
+  useNavigate,
 } from "@tanstack/react-router";
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import appCss from "../styles.css?url";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Toaster } from "sonner";
+import { useAuth } from "@/lib/db/auth";
+import { Loader2 } from "lucide-react";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
@@ -47,6 +51,34 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const { user, loading } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && !user && location.pathname !== "/auth") {
+      navigate({ to: "/auth" });
+    }
+  }, [user, loading, location.pathname]);
+
+  if (loading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-diamante-dark">
+        <Loader2 className="w-8 h-8 animate-spin text-white" />
+      </div>
+    );
+  }
+
+  if (!user && location.pathname === "/auth") {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <Outlet />
+        <Toaster position="top-right" />
+      </QueryClientProvider>
+    );
+  }
+
+  if (!user) return null;
 
   return (
     <QueryClientProvider client={queryClient}>
