@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { useAuth } from "@/lib/db/auth";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
@@ -12,7 +12,6 @@ function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -22,13 +21,16 @@ function LoginPage() {
     // Artificial delay to simulate server
     await new Promise(resolve => setTimeout(resolve, 800));
 
-    const success = login(email, password);
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
     
-    if (success) {
+    if (!error) {
       toast.success("Bem-vindo de volta!");
       navigate({ to: "/" });
     } else {
-      toast.error("Credenciais inválidas ou conta desativada.");
+      toast.error(error.message || "Credenciais inválidas ou conta desativada.");
       setIsLoading(false);
     }
   };

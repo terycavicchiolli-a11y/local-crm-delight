@@ -51,7 +51,7 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  const { user, loading } = useAuth();
+  const { user, loading } = useSupabaseAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
