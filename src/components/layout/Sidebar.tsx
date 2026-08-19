@@ -32,16 +32,7 @@ export function Sidebar() {
     navigate({ to: '/auth' });
   };
 
-  const filteredMenuItems = menuItems.filter(item => {
-    if (item.to === '/') return true;
-    if (item.to === '/clientes') return checkPermission('clientes');
-    if (item.to === '/processos') return checkPermission('processos');
-    if (item.to === '/agenda') return checkPermission('agenda');
-    if (item.to === '/financeiro') return checkPermission('financeiro');
-    if (item.to === '/comunicacao') return checkPermission('comunicacao');
-    if (item.to === '/comercial') return user?.role === 'OWNER' || user?.role === 'MASTER';
-    return true;
-  });
+  const filteredMenuItems = menuItems;
   return (
     <aside className="w-64 bg-diamante-dark text-white flex flex-col h-screen sticky top-0 border-r border-white/10">
       <div className="p-6 flex items-center gap-3">
