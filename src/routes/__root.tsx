@@ -11,7 +11,7 @@ import { type ReactNode, useEffect } from "react";
 import appCss from "../styles.css?url";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Toaster } from "sonner";
-import { useAuth } from "@/lib/db/auth";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { Loader2 } from "lucide-react";
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
@@ -51,7 +51,7 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  const { user, loading } = useAuth();
+  const { user, loading } = useSupabaseAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
