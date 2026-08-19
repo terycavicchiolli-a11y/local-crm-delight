@@ -250,7 +250,6 @@ const ChartLegendContent = React.forwardRef<
 >(({ className, hideIcon = false, verticalAlign = "bottom", nameKey, ...props }, ref) => {
   const { config } = useChart();
   const { payload: payloadProp } = props as any;
-  const { config } = useChart();
   const payload = payloadProp as any[];
 
   if (!payload?.length) {

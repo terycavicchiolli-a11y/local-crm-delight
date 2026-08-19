@@ -152,7 +152,7 @@ function ProcessosPage() {
                     <div className="mt-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       {STEPS.indexOf(step) > 0 && (
                         <button 
-                          onClick={() => updateStep(process.id, STEPS[STEPS.indexOf(step) - 1])}
+                          onClick={() => updateStep(process.id, STEPS[STEPS.indexOf(step as any) - 1]!)}
                           className="text-[10px] bg-muted hover:bg-muted-foreground/10 px-2 py-1 rounded"
                         >
                           Anterior
@@ -160,7 +160,7 @@ function ProcessosPage() {
                       )}
                       {STEPS.indexOf(step) < STEPS.length - 1 && (
                         <button 
-                          onClick={() => updateStep(process.id, STEPS[STEPS.indexOf(step) + 1])}
+                          onClick={() => updateStep(process.id, STEPS[STEPS.indexOf(step as any) + 1]!)}
                           className="text-[10px] bg-primary/10 text-primary hover:bg-primary/20 px-2 py-1 rounded ml-auto"
                         >
                           Próximo
