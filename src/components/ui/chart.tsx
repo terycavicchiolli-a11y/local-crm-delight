@@ -103,8 +103,8 @@ const ChartTooltipContent = React.forwardRef<
       labelKey?: string;
     }
 >(
-  (
-    {
+  (props, ref) => {
+    const {
       active,
       payload: payloadProp,
       className,
@@ -118,9 +118,7 @@ const ChartTooltipContent = React.forwardRef<
       color,
       nameKey,
       labelKey,
-    },
-    ref,
-  ) => {
+    } = props as any;
     const { config } = useChart();
     const payload = payloadProp as any[];
     const label = labelProp as string;
@@ -249,7 +247,9 @@ const ChartLegendContent = React.forwardRef<
       hideIcon?: boolean;
       nameKey?: string;
     }
->(({ className, hideIcon = false, payload: payloadProp, verticalAlign = "bottom", nameKey }, ref) => {
+>(({ className, hideIcon = false, verticalAlign = "bottom", nameKey, ...props }, ref) => {
+  const { config } = useChart();
+  const { payload: payloadProp } = props as any;
   const { config } = useChart();
   const payload = payloadProp as any[];
 
