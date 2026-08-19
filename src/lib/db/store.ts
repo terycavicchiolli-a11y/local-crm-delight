@@ -3,11 +3,37 @@ import { Database, Client, Process, TeamMember, Partner, Task, Financial, Commis
 const STORAGE_KEY = 'diamante_crm_db';
 
 const INITIAL_DATA: Database = {
+  users: [
+    {
+      id: '1',
+      name: 'Proprietário Diamante',
+      email: 'cesarjuliobraga@gmail.com',
+      passwordHash: 'admin123', // Em um sistema real, seria um hash
+      role: 'OWNER',
+      status: 'Ativo',
+      permissions: [],
+      createdAt: new Date().toISOString(),
+    }
+  ],
+  companies: [
+    {
+      id: '1',
+      corporateName: 'Diamante Crédito Imobiliário LTDA',
+      tradeName: 'Diamante Imobiliária',
+      document: '00.000.000/0001-00',
+      email: 'contato@diamanteimobiliaria.com.br',
+      phone: '(11) 4002-8922',
+      status: 'Ativo',
+      createdAt: new Date().toISOString(),
+    }
+  ],
+  auditLogs: [],
   clients: [],
   processes: [],
   team: [
     {
       id: '1',
+      companyId: '1',
       name: 'Corretor Exemplo',
       role: 'Consultor Imobiliário',
       email: 'exemplo@diamante.com',
@@ -23,6 +49,7 @@ const INITIAL_DATA: Database = {
   templates: [
     {
       id: '1',
+      companyId: '1',
       title: 'Primeiro Contato',
       category: 'Atendimento',
       content: 'Olá {nome}, sou da Diamante Imobiliária. Recebi seu interesse no processo {processo} e gostaria de conversar sobre os próximos passos.'

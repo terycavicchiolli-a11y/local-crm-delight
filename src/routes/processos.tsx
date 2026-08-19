@@ -61,6 +61,7 @@ function ProcessosPage() {
     const newProcess: Process = {
       ...(formData as any),
       id: crypto.randomUUID(),
+      companyId: '1', // Default
       commercialId: '1',
       entryDate: new Date().toISOString(),
       lastMove: new Date().toISOString(),

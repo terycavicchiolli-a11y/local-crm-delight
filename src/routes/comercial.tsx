@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/db/store";
-import { TeamMember, Partner } from "@/lib/db/types";
+import { TeamMember, Partner, User } from "@/lib/db/types";
 import { 
   Plus, 
   Users, 
@@ -21,11 +21,13 @@ export const Route = createFileRoute("/comercial")({
 function ComercialPage() {
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
-  const [activeTab, setActiveTab] = useState<'team' | 'partners'>('team');
+  const [users, setUsers] = useState<User[]>([]);
+  const [activeTab, setActiveTab] = useState<'team' | 'partners' | 'users'>('team');
 
   const loadData = () => {
     setTeam(db.getAll('team'));
     setPartners(db.getAll('partners'));
+    setUsers(db.getAll('users'));
   };
 
   useEffect(() => {
@@ -45,7 +47,7 @@ function ComercialPage() {
           className="flex items-center gap-2 bg-diamante-orange hover:bg-diamante-orange/90 text-white px-4 py-2 rounded-lg font-bold transition-all shadow-sm"
         >
           <Plus className="w-5 h-5" />
-          Novo {activeTab === 'team' ? 'Membro' : 'Parceiro'}
+          Novo {activeTab === 'team' ? 'Membro' : activeTab === 'partners' ? 'Parceiro' : 'Usuário'}
         </button>
       </div>
 
@@ -61,6 +63,12 @@ function ComercialPage() {
           className={`px-6 py-3 text-sm font-bold transition-colors border-b-2 ${activeTab === 'partners' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
         >
           Parceiros (Imobiliárias/Corretoras)
+        </button>
+        <button 
+          onClick={() => setActiveTab('users')}
+          className={`px-6 py-3 text-sm font-bold transition-colors border-b-2 ${activeTab === 'users' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+        >
+          Gerenciamento de Usuários
         </button>
       </div>
 
@@ -100,7 +108,7 @@ function ComercialPage() {
               </div>
             </div>
           ))
-        ) : (
+        ) : activeTab === 'partners' ? (
           partners.length === 0 ? (
             <div className="col-span-full py-12 text-center bg-card rounded-xl border border-dashed border-border">
               <Handshake className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
@@ -127,6 +135,40 @@ function ComercialPage() {
               </div>
             ))
           )
+        ) : (
+          <div className="col-span-full space-y-6">
+            <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+              <div className="p-4 border-b border-border bg-muted/30">
+                <h3 className="font-bold text-diamante-dark">Usuários do Sistema</h3>
+              </div>
+              <table className="w-full text-sm text-left">
+                <thead className="bg-muted/50 text-muted-foreground text-[10px] font-bold uppercase tracking-wider">
+                  <tr>
+                    <th className="px-4 py-3">Nome</th>
+                    <th className="px-4 py-3">E-mail</th>
+                    <th className="px-4 py-3">Nível</th>
+                    <th className="px-4 py-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {users.map(u => (
+                    <tr key={u.id} className="hover:bg-muted/30">
+                      <td className="px-4 py-3 font-medium">{u.name}</td>
+                      <td className="px-4 py-3">{u.email}</td>
+                      <td className="px-4 py-3">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">{u.role}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${u.status === 'Ativo' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          {u.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
       </div>
     </div>

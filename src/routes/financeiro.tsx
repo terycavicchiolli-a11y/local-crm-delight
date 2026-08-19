@@ -49,6 +49,7 @@ function FinanceiroPage() {
     const newEntry: Financial = {
       ...(formData as any),
       id: crypto.randomUUID(),
+      companyId: '1', // Default
       date: new Date().toISOString(),
     };
     db.upsert('financials', newEntry);
@@ -61,6 +62,7 @@ function FinanceiroPage() {
         const commissionVal = (newEntry.value * responsible.commissionRate) / 100;
         const newComm: Commission = {
           id: crypto.randomUUID(),
+          companyId: '1', // Default
           processId: process.id,
           financialId: newEntry.id,
           responsibleId: responsible.id,
