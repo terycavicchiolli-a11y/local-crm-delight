@@ -42,6 +42,7 @@ export function Sidebar() {
     if (item.to === '/comercial') return user?.role === 'OWNER' || user?.role === 'MASTER';
     return true;
   });
+  return (
     <aside className="w-64 bg-diamante-dark text-white flex flex-col h-screen sticky top-0 border-r border-white/10">
       <div className="p-6 flex items-center gap-3">
         <div className="w-8 h-8 bg-diamante-orange rounded flex items-center justify-center font-bold text-white">D</div>
