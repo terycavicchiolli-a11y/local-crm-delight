@@ -1,63 +1,30 @@
-import { useState, useEffect } from 'react';
-import { User } from './types';
-import { db } from './store';
+import { supabase } from "@/integrations/supabase/client";
+import { z } from "zod";
 
-const AUTH_KEY = 'diamante_crm_auth';
+// User roles in Supabase
+export type AppRole = 'OWNER' | 'MASTER' | 'COMMON';
 
-export function useAuth() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+// Function to sync current user role from Supabase to profiles table if needed,
+// but primarily we use the profile data.
+export const getUserProfile = async (userId: string) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*, companies(*)')
+    .eq('id', userId)
+    .single();
+  
+  if (error) throw error;
+  return data;
+};
 
-  useEffect(() => {
-    const stored = localStorage.getItem(AUTH_KEY);
-    if (stored) {
-      try {
-        const userData = JSON.parse(stored);
-        // Verify if user still exists in DB
-        const users = db.getAll('users');
-        const found = users.find(u => u.id === userData.id && u.status === 'Ativo');
-        if (found) {
-          setUser(found);
-        } else {
-          localStorage.removeItem(AUTH_KEY);
-        }
-      } catch (e) {
-        localStorage.removeItem(AUTH_KEY);
-      }
-    }
-    setLoading(false);
-  }, []);
-
-  const login = (email: string, pass: string): boolean => {
-    const users = db.getAll('users');
-    const found = users.find(u => u.email === email && u.passwordHash === pass && u.status === 'Ativo');
-    
-    if (found) {
-      localStorage.setItem(AUTH_KEY, JSON.stringify(found));
-      setUser(found);
-      
-      // Update last access
-      db.upsert('users', { ...found, lastAccess: new Date().toISOString() });
-      
-      return true;
-    }
-    return false;
-  };
-
-  const logout = () => {
-    localStorage.removeItem(AUTH_KEY);
-    setUser(null);
-  };
-
-  const checkPermission = (moduleId: string, action: string = 'view') => {
-    if (!user) return false;
-    if (user.role === 'OWNER') return true;
-    
-    const perm = user.permissions.find(p => p.moduleId === moduleId);
-    if (!perm) return false;
-    
-    return perm.actions.includes(action);
-  };
-
-  return { user, loading, login, logout, checkPermission };
-}
+// High-level check for permissions (simplified for now)
+export const hasPermission = (role: AppRole, module: string, action: string) => {
+  if (role === 'OWNER') return true;
+  if (role === 'MASTER') {
+    // Master can do almost everything except some owner-only settings
+    return true; 
+  }
+  // Common users have restricted access
+  if (action === 'view') return true;
+  return false;
+};

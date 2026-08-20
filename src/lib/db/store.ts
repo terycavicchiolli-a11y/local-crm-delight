@@ -49,7 +49,7 @@ const INITIAL_DATA: Database = {
   templates: [
     {
       id: '1',
-      companyId: '1',
+      company_id: '1',
       title: 'Primeiro Contato',
       category: 'Atendimento',
       content: 'Olá {nome}, sou da Diamante Imobiliária. Recebi seu interesse no processo {processo} e gostaria de conversar sobre os próximos passos.'

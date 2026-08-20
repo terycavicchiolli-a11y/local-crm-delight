@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { db } from "@/lib/db/store";
+import { supabase } from "@/integrations/supabase/client";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { Client } from "@/lib/db/types";
 import { 
   Plus, 
@@ -35,29 +36,82 @@ function ClientesPage() {
     notes: ''
   });
 
-  const loadClients = () => {
-    setClients(db.getAll('clients'));
+  const { user } = useSupabaseAuth();
+
+  const loadClients = async () => {
+    if (!user) return;
+    
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*')
+      .order('name');
+    
+    if (error) {
+      toast.error("Erro ao carregar clientes: " + error.message);
+      return;
+    }
+    
+    setClients(data as any);
   };
 
   useEffect(() => {
     loadClients();
-    window.addEventListener('storage-update', loadClients);
-    return () => window.removeEventListener('storage-update', loadClients);
-  }, []);
+  }, [user]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newClient: Client = {
+    if (!user) return;
+
+    // Get company_id from profile
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('company_id')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile?.company_id) {
+      toast.error("Erro: Usuário sem empresa vinculada.");
+      return;
+    }
+
+    const payload = {
       ...(formData as any),
-      id: (formData.id || crypto.randomUUID()),
-      companyId: '1', // Default
-      commercialId: '1', // Default
-      createdAt: new Date().toISOString(),
+      id: formData.id || crypto.randomUUID(),
+      company_id: profile.company_id,
+      commercial_id: user.id, // Linking to current user
+      created_at: new Date().toISOString(),
     };
-    db.upsert('clients', newClient);
-    toast.success(formData.id ? "Cliente atualizado" : "Cliente cadastrado com sucesso");
-    setShowModal(false);
-    setFormData({ status: 'Lead', origin: 'Site' });
+
+    // Remove client-side only keys if they exist in camelCase to avoid DB errors
+    // or map them to snake_case.
+    const dbPayload = {
+      id: payload.id,
+      company_id: payload.company_id,
+      name: payload.name,
+      document: payload.document,
+      phone: payload.phone,
+      whatsapp: payload.whatsapp,
+      email: payload.email,
+      address: payload.address,
+      origin: payload.origin,
+      status: payload.status,
+      notes: payload.notes,
+      commercial_id: payload.commercial_id,
+      created_at: payload.created_at
+    };
+
+    const { error } = await supabase
+      .from('clients')
+      .upsert(dbPayload);
+
+    if (error) {
+      toast.error("Erro ao salvar: " + error.message);
+    } else {
+      toast.success(formData.id ? "Cliente atualizado" : "Cliente cadastrado com sucesso");
+      setShowModal(false);
+      setFormData({ status: 'Lead', origin: 'Site' });
+      loadClients();
+    }
   };
 
   const filteredClients = clients.filter(c => 
@@ -147,7 +201,11 @@ function ClientesPage() {
                           <Edit className="w-4 h-4" />
                         </button>
                         <button 
-                          onClick={() => { db.delete('clients', client.id); toast.info("Cliente removido"); }}
+                          onClick={async () => { 
+                            const { error } = await supabase.from('clients').delete().eq('id', client.id);
+                            if (error) toast.error("Erro ao remover: " + error.message);
+                            else { toast.info("Cliente removido"); loadClients(); }
+                          }}
                           className="p-1 hover:bg-destructive/10 rounded text-destructive"
                         >
                           <Trash2 className="w-4 h-4" />

@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { db } from "@/lib/db/store";
+import { supabase } from "@/integrations/supabase/client";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { Process, ProcessStep, Client } from "@/lib/db/types";
 import { z } from "zod";
 import { 
@@ -41,41 +42,81 @@ function ProcessosPage() {
     notes: ''
   });
 
-  const loadData = () => {
-    setProcesses(db.getAll('processes'));
-    setClients(db.getAll('clients'));
+  const { user } = useSupabaseAuth();
+
+  const loadData = async () => {
+    if (!user) return;
+    
+    const [procRes, cliRes] = await Promise.all([
+      supabase.from('processes').select('*').order('last_move', { ascending: false }),
+      supabase.from('clients').select('*').order('name')
+    ]);
+
+    if (procRes.data) setProcesses(procRes.data as any);
+    if (cliRes.data) setClients(cliRes.data as any);
   };
 
   useEffect(() => {
     loadData();
-    window.addEventListener('storage-update', loadData);
-    return () => window.removeEventListener('storage-update', loadData);
-  }, []);
+  }, [user]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.clientId) {
+    if (!user || !formData.clientId) {
       toast.error("Selecione um cliente");
       return;
     }
-    const newProcess: Process = {
-      ...(formData as any),
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('company_id')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile?.company_id) {
+      toast.error("Usuário sem empresa vinculada");
+      return;
+    }
+
+    const dbPayload = {
       id: crypto.randomUUID(),
-      companyId: '1', // Default
-      commercialId: '1',
-      entryDate: new Date().toISOString(),
-      lastMove: new Date().toISOString(),
+      company_id: profile.company_id,
+      client_id: formData.clientId,
+      commercial_id: user.id,
+      step: formData.step || 'Lead',
+      status: formData.status || 'Ativo',
+      value: formData.value || 0,
+      next_action: formData.nextAction || '',
+      notes: formData.notes || '',
+      entry_date: new Date().toISOString(),
+      last_move: new Date().toISOString(),
     };
-    db.upsert('processes', newProcess);
-    toast.success("Processo criado");
-    setShowModal(false);
+
+    const { error } = await supabase.from('processes').insert(dbPayload);
+    
+    if (error) {
+      toast.error("Erro ao criar processo: " + error.message);
+    } else {
+      toast.success("Processo criado");
+      setShowModal(false);
+      loadData();
+    }
   };
 
-  const updateStep = (processId: string, newStep: z.infer<typeof ProcessStep>) => {
-    const p = db.getById('processes', processId) as Process;
-    if (p) {
-      db.upsert('processes', { ...p, step: newStep, lastMove: new Date().toISOString() });
+  const updateStep = async (processId: string, newStep: z.infer<typeof ProcessStep>) => {
+    const { error } = await supabase
+      .from('processes')
+      .update({ 
+        step: newStep, 
+        last_move: new Date().toISOString() 
+      })
+      .eq('id', processId);
+
+    if (error) {
+      toast.error("Erro ao mover processo: " + error.message);
+    } else {
       toast.info(`Processo movido para ${newStep}`);
+      loadData();
     }
   };
 
@@ -136,14 +177,14 @@ function ProcessosPage() {
                       <span className="text-[10px] font-bold text-muted-foreground uppercase">#{process.id.slice(0, 5)}</span>
                       <button className="text-muted-foreground hover:text-primary"><MoreHorizontal className="w-4 h-4" /></button>
                     </div>
-                    <p className="font-bold text-diamante-dark mb-1">{getClientName(process.clientId)}</p>
+                    <p className="font-bold text-diamante-dark mb-1">{getClientName((process as any).client_id || process.clientId)}</p>
                     <div className="flex items-center gap-2 text-[11px] text-muted-foreground mb-3">
                       <Calendar className="w-3 h-3" />
-                      {new Date(process.entryDate).toLocaleDateString()}
+                      {new Date((process as any).entry_date || process.entryDate).toLocaleDateString()}
                     </div>
                     <div className="flex items-center justify-between pt-3 border-t border-border">
                       <span className="text-xs font-bold text-primary">R$ {process.value.toLocaleString()}</span>
-                      {process.nextAction && (
+                      {((process as any).next_action || process.nextAction) && (
                         <div className="flex items-center text-[10px] text-orange-600 font-medium">
                           <AlertCircle className="w-3 h-3 mr-1" />
                           Ação pendente
@@ -197,7 +238,7 @@ function ProcessosPage() {
                   onChange={e => setFormData({...formData, clientId: e.target.value})}
                 >
                   <option value="">Selecione um cliente...</option>
-                  {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                   {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-4">

@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { db } from "@/lib/db/store";
+import { supabase } from "@/integrations/supabase/client";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { Financial, Commission, Process, TeamMember } from "@/lib/db/types";
 import { 
   Plus, 
@@ -29,53 +30,84 @@ function FinanceiroPage() {
     value: 0
   });
 
-  const loadData = () => {
-    setFinancials(db.getAll('financials'));
-    setCommissions(db.getAll('commissions'));
-    setProcesses(db.getAll('processes'));
-    setTeam(db.getAll('team'));
+  const { user } = useSupabaseAuth();
+
+  const loadData = async () => {
+    if (!user) return;
+    const [finRes, commRes, procRes, teamRes] = await Promise.all([
+      supabase.from('financials').select('*').order('date', { ascending: false }),
+      supabase.from('commissions').select('*'),
+      supabase.from('processes').select('*'),
+      supabase.from('team_members').select('*')
+    ]);
+
+    if (finRes.data) setFinancials(finRes.data as any);
+    if (commRes.data) setCommissions(commRes.data as any);
+    if (procRes.data) setProcesses(procRes.data as any);
+    if (teamRes.data) setTeam(teamRes.data as any);
   };
 
   useEffect(() => {
     loadData();
-    window.addEventListener('storage-update', loadData);
-    return () => window.removeEventListener('storage-update', loadData);
-  }, []);
+  }, [user]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.processId) return;
+    if (!user || !formData.processId) return;
 
-    const newEntry: Financial = {
-      ...(formData as any),
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('company_id')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile?.company_id) {
+      toast.error("Usuário sem empresa vinculada");
+      return;
+    }
+
+    const dbPayload = {
       id: crypto.randomUUID(),
-      companyId: '1', // Default
+      company_id: profile.company_id,
+      process_id: formData.processId,
+      type: formData.type || 'Recebimento',
+      value: formData.value || 0,
       date: new Date().toISOString(),
+      status: formData.status || 'Pendente',
     };
-    db.upsert('financials', newEntry);
+
+    const { error: finError } = await supabase.from('financials').insert(dbPayload);
+
+    if (finError) {
+      toast.error("Erro ao registrar: " + finError.message);
+      return;
+    }
 
     // Auto-calculate commission if it's a confirmed receipt
-    if (newEntry.type === 'Recebimento' && newEntry.status === 'Confirmado') {
-      const process = processes.find(p => p.id === newEntry.processId);
-      const responsible = team.find(t => t.id === process?.commercialId);
+    if (dbPayload.type === 'Recebimento' && dbPayload.status === 'Confirmado') {
+      const process = processes.find(p => p.id === dbPayload.process_id);
+      const responsibleId = (process as any).commercial_id || process?.commercialId;
+      const responsible = team.find(t => t.id === responsibleId);
+      
       if (process && responsible) {
-        const commissionVal = (newEntry.value * responsible.commissionRate) / 100;
-        const newComm: Commission = {
+        const commissionVal = (dbPayload.value * (responsible.commissionRate || 0)) / 100;
+        const newComm = {
           id: crypto.randomUUID(),
-          companyId: '1', // Default
-          processId: process.id,
-          financialId: newEntry.id,
-          responsibleId: responsible.id,
+          company_id: profile.company_id,
+          process_id: process.id,
+          financial_id: dbPayload.id,
+          responsible_id: responsible.id,
           value: commissionVal,
-          rate: responsible.commissionRate,
+          rate: responsible.commissionRate || 0,
           status: 'Calculada'
         };
-        db.upsert('commissions', newComm);
+        await supabase.from('commissions').insert(newComm);
       }
     }
 
     toast.success("Lançamento financeiro registrado");
     setShowModal(false);
+    loadData();
   };
 
   const totalReceived = financials.filter(f => f.type === 'Recebimento' && f.status === 'Confirmado').reduce((acc, f) => acc + f.value, 0);
@@ -155,7 +187,7 @@ function FinanceiroPage() {
                 financials.map(f => (
                   <tr key={f.id} className="hover:bg-muted/30">
                     <td className="px-4 py-3 text-xs">{new Date(f.date).toLocaleDateString()}</td>
-                    <td className="px-4 py-3 font-medium">#{f.processId.slice(0, 5)}</td>
+                    <td className="px-4 py-3 font-medium">#{((f as any).process_id || f.processId).slice(0, 5)}</td>
                     <td className="px-4 py-3 font-bold text-primary">R$ {f.value.toLocaleString()}</td>
                     <td className="px-4 py-3">
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${f.status === 'Confirmado' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
@@ -188,8 +220,8 @@ function FinanceiroPage() {
               ) : (
                 commissions.map(c => (
                   <tr key={c.id} className="hover:bg-muted/30">
-                    <td className="px-4 py-3 font-medium">{team.find(t => t.id === c.responsibleId)?.name || 'Consultor'}</td>
-                    <td className="px-4 py-3 text-xs">#{c.processId.slice(0, 5)}</td>
+                     <td className="px-4 py-3 font-medium">{team.find(t => t.id === ((c as any).responsible_id || c.responsibleId))?.name || 'Consultor'}</td>
+                     <td className="px-4 py-3 text-xs">#{((c as any).process_id || c.processId).slice(0, 5)}</td>
                     <td className="px-4 py-3 font-bold text-diamante-orange">R$ {c.value.toLocaleString()}</td>
                     <td className="px-4 py-3">
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">{c.status}</span>
