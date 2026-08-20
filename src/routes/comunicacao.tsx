@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { db } from "@/lib/db/store";
+import { supabase } from "@/integrations/supabase/client";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { MessageTemplate, Client, Process } from "@/lib/db/types";
 import { 
   Copy, 
@@ -25,17 +26,24 @@ function ComunicacaoPage() {
   const [selectedProcess, setSelectedProcess] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const loadData = () => {
-    setTemplates(db.getAll('templates'));
-    setClients(db.getAll('clients'));
-    setProcesses(db.getAll('processes'));
+  const { user } = useSupabaseAuth();
+
+  const loadData = async () => {
+    if (!user) return;
+    const [tempRes, cliRes, procRes] = await Promise.all([
+      supabase.from('message_templates').select('*'),
+      supabase.from('clients').select('*'),
+      supabase.from('processes').select('*')
+    ]);
+
+    if (tempRes.data) setTemplates(tempRes.data as any);
+    if (cliRes.data) setClients(cliRes.data as any);
+    if (procRes.data) setProcesses(procRes.data as any);
   };
 
   useEffect(() => {
     loadData();
-    window.addEventListener('storage-update', loadData);
-    return () => window.removeEventListener('storage-update', loadData);
-  }, []);
+  }, [user]);
 
   const getPreview = (content: string) => {
     let preview = content;
