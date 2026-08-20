@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { db } from "@/lib/db/store";
+import { supabase } from "@/integrations/supabase/client";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { Task, Client } from "@/lib/db/types";
 import { 
   Plus, 
@@ -30,40 +31,76 @@ function AgendaPage() {
     status: 'Pendente'
   });
 
-  const loadData = () => {
-    setTasks(db.getAll('tasks'));
-    setClients(db.getAll('clients'));
+  const { user } = useSupabaseAuth();
+
+  const loadData = async () => {
+    if (!user) return;
+    const [taskRes, cliRes] = await Promise.all([
+      supabase.from('tasks').select('*').order('deadline'),
+      supabase.from('clients').select('*').order('name')
+    ]);
+    if (taskRes.data) setTasks(taskRes.data as any);
+    if (cliRes.data) setClients(cliRes.data as any);
   };
 
   useEffect(() => {
     loadData();
-    window.addEventListener('storage-update', loadData);
-    return () => window.removeEventListener('storage-update', loadData);
-  }, []);
+  }, [user]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newTask: Task = {
-      ...(formData as any),
+    if (!user) return;
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('company_id')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile?.company_id) {
+      toast.error("Usuário sem empresa vinculada");
+      return;
+    }
+
+    const dbPayload = {
       id: crypto.randomUUID(),
-      companyId: '1', // Default
-      responsibleId: '1',
-      createdAt: new Date().toISOString(),
-      status: 'Pendente'
+      company_id: profile.company_id,
+      title: formData.title || '',
+      description: formData.description || '',
+      responsible_id: user.id,
+      deadline: formData.deadline || new Date().toISOString(),
+      priority: formData.priority || 'Média',
+      status: 'Pendente',
+      client_id: formData.clientId || null,
+      created_at: new Date().toISOString()
     };
-    db.upsert('tasks', newTask);
-    toast.success("Tarefa agendada");
-    setShowModal(false);
-    setFormData({ priority: 'Média', status: 'Pendente' });
+
+    const { error } = await supabase.from('tasks').insert(dbPayload);
+    if (error) {
+      toast.error("Erro ao agendar: " + error.message);
+    } else {
+      toast.success("Tarefa agendada");
+      setShowModal(false);
+      setFormData({ priority: 'Média', status: 'Pendente' });
+      loadData();
+    }
   };
 
-  const toggleTask = (task: Task) => {
+  const toggleTask = async (task: Task) => {
     const newStatus = task.status === 'Concluída' ? 'Pendente' : 'Concluída';
-    db.upsert('tasks', { 
-      ...task, 
-      status: newStatus,
-      completedAt: newStatus === 'Concluída' ? new Date().toISOString() : undefined 
-    });
+    const { error } = await supabase
+      .from('tasks')
+      .update({ 
+        status: newStatus,
+        completed_at: newStatus === 'Concluída' ? new Date().toISOString() : null 
+      })
+      .eq('id', task.id);
+    
+    if (error) {
+      toast.error("Erro ao atualizar tarefa: " + error.message);
+    } else {
+      loadData();
+    }
   };
 
   const filteredTasks = tasks.filter(t => {
@@ -156,17 +193,21 @@ function AgendaPage() {
                       <Clock className={`w-3.5 h-3.5 ${new Date(task.deadline) < new Date() && task.status !== 'Concluída' ? 'text-destructive' : ''}`} />
                       {format(new Date(task.deadline), "dd 'de' MMMM, HH:mm", { locale: ptBR })}
                     </div>
-                    {task.clientId && (
+                    {((task as any).client_id || task.clientId) && (
                       <div className="flex items-center gap-1.5">
                         <User className="w-3.5 h-3.5" />
-                        {clients.find(c => c.id === task.clientId)?.name}
+                        {clients.find(c => c.id === ((task as any).client_id || task.clientId))?.name}
                       </div>
                     )}
                   </div>
                 </div>
                 <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button 
-                    onClick={() => db.delete('tasks', task.id)}
+                    onClick={async () => {
+                      const { error } = await supabase.from('tasks').delete().eq('id', task.id);
+                      if (error) toast.error("Erro ao remover: " + error.message);
+                      else { toast.info("Tarefa removida"); loadData(); }
+                    }}
                     className="p-1.5 text-destructive hover:bg-destructive/10 rounded-lg"
                   >
                     <Trash2 className="w-4 h-4" />
