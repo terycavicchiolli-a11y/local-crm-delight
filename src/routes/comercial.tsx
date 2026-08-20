@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { db } from "@/lib/db/store";
+import { supabase } from "@/integrations/supabase/client";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { TeamMember, Partner, User } from "@/lib/db/types";
 import { 
   Plus, 
@@ -24,17 +25,24 @@ function ComercialPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [activeTab, setActiveTab] = useState<'team' | 'partners' | 'users'>('team');
 
-  const loadData = () => {
-    setTeam(db.getAll('team'));
-    setPartners(db.getAll('partners'));
-    setUsers(db.getAll('users'));
+  const { user: currentUser } = useSupabaseAuth();
+
+  const loadData = async () => {
+    if (!currentUser) return;
+    const [teamRes, partRes, profRes] = await Promise.all([
+      supabase.from('team_members').select('*').order('name'),
+      supabase.from('partners').select('*').order('name'),
+      supabase.from('profiles').select('*').order('name')
+    ]);
+
+    if (teamRes.data) setTeam(teamRes.data as any);
+    if (partRes.data) setPartners(partRes.data as any);
+    if (profRes.data) setUsers(profRes.data as any);
   };
 
   useEffect(() => {
     loadData();
-    window.addEventListener('storage-update', loadData);
-    return () => window.removeEventListener('storage-update', loadData);
-  }, []);
+  }, [currentUser]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
