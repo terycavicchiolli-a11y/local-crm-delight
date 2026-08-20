@@ -150,7 +150,7 @@ export const CommissionSchema = z.object({
 
 export const MessageTemplateSchema = z.object({
   id: z.string().uuid(),
-  companyId: z.string().uuid().optional(), // Can be global or company-specific
+  company_id: z.string().uuid().optional(),
   title: z.string(),
   category: z.string(),
   content: z.string(),
